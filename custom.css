@@ -1,0 +1,367 @@
+/* ==========================================================================
+   Momentum-inspired focus view for gethomepage (custom.css)
+   --------------------------------------------------------------------------
+   Pair this with custom.js. Rules are scoped under body.mf-on, which only
+   custom.js sets, so if the script fails you get the stock dashboard back.
+   Two states: body.mf-focus (default) and body.mf-dash.
+
+   To customize the look, edit the variables in the CUSTOMIZE block below.
+   Everything else targets Homepage's own markup (ids like #services,
+   #bookmarks, #information-widgets); a future Homepage release that renames
+   those could need small selector updates here.
+   ========================================================================== */
+
+/* ============================== CUSTOMIZE ================================= */
+body.mf-on {
+  /* Font for everything. System stack = SF Pro on Apple, Segoe UI on Windows. */
+  --mf-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Color shown while the daily photo loads (or if it can't load). */
+  --mf-fallback-bg: #3d5a66;
+  /* Dashboard view: how much the photo darkens and blurs behind the cards. */
+  --mf-dash-dim: rgba(12, 18, 26, .48);
+  --mf-dash-blur: 8px;
+  /* Frosted card fill and border on the dashboard. */
+  --mf-card-bg: rgba(255, 255, 255, .09);
+  --mf-card-border: rgba(255, 255, 255, .14);
+}
+/* ============================ END CUSTOMIZE =============================== */
+
+/* ---------- Before custom.js runs: no flash of the stock dashboard ----------
+   custom.css loads in <head>, custom.js only after the page is interactive.
+   Hide the page until the script adds body.mf-on. Failsafe: if the script
+   never runs, the stock dashboard fades in after 2.5s anyway. */
+body:not(.mf-on) #page_wrapper,
+body:not(.mf-on) #background { opacity: 0; animation: mf-failsafe 300ms ease 2.5s forwards; }
+@keyframes mf-failsafe { to { opacity: 1; } }
+
+/* ---------- Shared: photo layer replaces Homepage's dimmed background ---------- */
+body.mf-on #background { display: none; }
+
+#mf-bg {
+  position: fixed; inset: 0; z-index: 0;
+  background: var(--mf-fallback-bg, #3d5a66) center / cover no-repeat;
+  transition: opacity 600ms ease, filter 550ms ease, transform 700ms cubic-bezier(.2,.8,.2,1);
+}
+/* Dashboard: the photo softens and eases back, so the cards read as a layer above it */
+body.mf-dash #mf-bg { filter: blur(var(--mf-dash-blur, 8px)) saturate(1.1); transform: scale(1.06); }
+#mf-bg.mf-loading { opacity: 0; }
+
+#mf-shade {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  /* soft top + bottom vignette keeps white text readable on bright photos */
+  background:
+    linear-gradient(to bottom, rgba(0,0,0,.28), rgba(0,0,0,0) 22%, rgba(0,0,0,0) 72%, rgba(0,0,0,.32));
+  transition: background-color 300ms ease;
+}
+body.mf-dash #mf-shade { background-color: var(--mf-dash-dim, rgba(12, 18, 26, .48)); }
+
+body.mf-on #page_wrapper { position: relative; z-index: 2; }
+
+/* Font (set in CUSTOMIZE above) applies to both views */
+body.mf-on {
+  font-family: var(--mf-font);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+body.mf-on #page_wrapper, body.mf-on #page_wrapper * { font-family: var(--mf-font) !important; }
+
+/* Search bar: dashboard only (focus view hides the whole top bar) */
+body.mf-dash .information-widget-search { min-width: 280px; }
+body.mf-dash .information-widget-search input {
+  background: rgba(255,255,255,.12) !important;
+  border: 1px solid rgba(255,255,255,.22) !important;
+  color: #fff !important;
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+body.mf-dash .information-widget-search input::placeholder { color: rgba(255,255,255,.65) !important; }
+
+/* Dashboard weather widgets sit side by side, never stacked */
+body.mf-on #information-widgets-right { flex-wrap: nowrap; gap: 1.5rem; }
+body.mf-on .information-widget-openweathermap .widget-inner-text span { color: #fff; }
+
+/* ---------- Focus view ---------- */
+#mf-focus {
+  position: fixed; inset: 0; z-index: 1;
+  color: #fff; pointer-events: none;
+  font-family: var(--mf-font);
+  text-shadow: 0 1px 18px rgba(0,0,0,.22);
+  transition: opacity 320ms ease, transform 500ms cubic-bezier(.2,.8,.2,1), visibility 0s linear 0s;
+}
+#mf-focus > * { pointer-events: auto; }
+/* elements custom.js hides when there's nothing to show (no weather widgets,
+   no bookmarks, no Docker statuses) */
+#mf-focus [hidden] { display: none !important; }
+/* Focus -> dashboard: clock layer fades while drifting slightly toward you */
+body.mf-dash #mf-focus {
+  opacity: 0; visibility: hidden; transform: scale(1.04);
+  transition: opacity 220ms ease, transform 400ms cubic-bezier(.2,.8,.2,1), visibility 0s linear 400ms;
+}
+/* Clock and greeting rise in on page load */
+.mf-center > * { animation: mf-rise 700ms cubic-bezier(.2,.8,.2,1) backwards; }
+.mf-center > #mf-greeting { animation-delay: 90ms; }
+
+@keyframes mf-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+/* Dashboard sections rise in, staggered, every time the dashboard opens */
+body.mf-dash #information-widgets,
+body.mf-dash .services-group,
+body.mf-dash .bookmark-group { animation: mf-rise 520ms cubic-bezier(.2,.8,.2,1) backwards; }
+body.mf-dash .services-group:nth-child(1) { animation-delay: 60ms; }
+body.mf-dash .services-group:nth-child(2) { animation-delay: 110ms; }
+body.mf-dash .services-group:nth-child(3) { animation-delay: 160ms; }
+body.mf-dash .services-group:nth-child(n+4) { animation-delay: 210ms; }
+body.mf-dash .bookmark-group { animation-delay: 240ms; }
+/* Dashboard -> focus: sections sink and fade before the clock comes back */
+body.mf-leaving #information-widgets,
+body.mf-leaving #services,
+body.mf-leaving #bookmarks {
+  opacity: 0; transform: translateY(12px);
+  transition: opacity 200ms ease, transform 220ms ease;
+}
+
+/* Homepage content that stays out of the focus view */
+body.mf-focus #services,
+body.mf-focus #bookmarks,
+body.mf-focus #footer,
+body.mf-focus #information-widgets {
+  display: none !important;
+}
+/* the page wrapper spans the screen; let clicks fall through to the focus layer */
+body.mf-focus #page_wrapper,
+body.mf-focus #inner_wrapper { pointer-events: none; }
+/* ...except quick launch (first child of the container) */
+body.mf-focus #inner_wrapper > .container > div:first-child { pointer-events: auto; }
+
+/* Weather, Momentum-style: big temp with icon, city underneath */
+.mf-tr {
+  position: absolute; top: 14px; right: 18px;
+  display: flex; align-items: flex-start; gap: 6px;
+}
+.mf-wx {
+  all: unset; cursor: pointer; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: flex-end;
+  padding: 6px 10px; border-radius: 12px;
+  color: #fff; transition: background-color 150ms ease;
+}
+.mf-wx:hover, .mf-wx[aria-expanded="true"] { background: rgba(255,255,255,.12); }
+.mf-wx:focus-visible { outline: 2px solid rgba(255,255,255,.8); outline-offset: 2px; }
+.mf-wx-top { display: flex; align-items: center; gap: 8px; }
+.mf-wx-top svg { width: 34px; height: 34px; }
+.mf-wx-temp { font-size: 32px; font-weight: 500; line-height: 1.1; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.mf-wx-city { font-size: 15px; font-weight: 500; opacity: .92; margin-top: 2px; }
+
+/* Click-through card */
+#mf-wx-card {
+  position: absolute; top: 76px; right: 18px; width: 420px; max-width: calc(100vw - 24px);
+  box-sizing: border-box; padding: 18px 22px 14px;
+  border-radius: 14px; color: #fff; text-shadow: none;
+  background: rgba(32, 36, 40, .9);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+}
+#mf-wx-card[hidden] { display: none; }
+#mf-wx-card::before {
+  content: ""; position: absolute; top: -7px; right: var(--mf-caret, 40px);
+  width: 14px; height: 14px; transform: rotate(45deg);
+  background: rgba(32, 36, 40, .9); border-radius: 2px;
+}
+.mf-wc-head { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 500; }
+.mf-wc-head svg { width: 26px; height: 26px; }
+.mf-wc-cond { margin-top: 10px; font-size: 16px; color: rgba(255,255,255,.75); }
+.mf-wc-body { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 6px; }
+.mf-wc-big { display: flex; align-items: center; gap: 8px; }
+.mf-wc-big svg { width: 64px; height: 64px; }
+.mf-wc-big span { font-size: 64px; font-weight: 400; line-height: 1; letter-spacing: -0.01em; }
+.mf-wc-stats { display: grid; grid-template-columns: auto auto; gap: 4px 10px; font-size: 15px; }
+.mf-wc-stats dt { color: rgba(255,255,255,.55); }
+.mf-wc-stats dd { margin: 0; }
+.mf-wc-foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.12);
+  font-size: 13px;
+}
+.mf-wc-foot a { color: rgba(255,255,255,.85); text-decoration: none; }
+.mf-wc-foot a:hover { color: #fff; text-decoration: underline; }
+.mf-wc-foot span { color: rgba(255,255,255,.45); }
+
+/* Top-left: links + status */
+.mf-tl {
+  position: absolute; top: 18px; left: 24px;
+  display: flex; align-items: center; gap: 8px;
+}
+.mf-btn {
+  all: unset; cursor: pointer; box-sizing: border-box;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 12px; border-radius: 999px;
+  font-size: 14px; font-weight: 500; color: #fff;
+  transition: background-color 150ms ease;
+}
+.mf-btn:hover, .mf-btn[aria-expanded="true"] { background: rgba(255,255,255,.16); }
+.mf-btn:focus-visible { outline: 2px solid rgba(255,255,255,.8); outline-offset: 2px; }
+.mf-btn svg { width: 17px; height: 17px; flex: none; }
+.mf-dot { width: 8px; height: 8px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,.22); }
+.mf-dot.mf-warn { background: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,.25); }
+
+#mf-links-menu {
+  position: absolute; top: 44px; left: 0; min-width: 230px; max-height: 70vh; overflow: auto;
+  padding: 8px; border-radius: 12px;
+  background: rgba(20, 26, 34, .72);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,.12);
+  text-shadow: none;
+}
+#mf-links-menu[hidden] { display: none; }
+#mf-links-menu h3 {
+  margin: 8px 10px 4px; font-size: 11px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.55);
+}
+#mf-links-menu h3:first-child { margin-top: 2px; }
+#mf-links-menu a {
+  display: flex; justify-content: space-between; gap: 16px;
+  padding: 7px 10px; border-radius: 8px;
+  font-size: 14px; color: #fff; text-decoration: none;
+}
+#mf-links-menu a span { color: rgba(255,255,255,.5); font-size: 12px; }
+#mf-links-menu a:hover { background: rgba(255,255,255,.12); }
+
+/* Center: clock + greeting */
+.mf-center {
+  position: absolute; left: 0; right: 0; top: 50%;
+  transform: translateY(-58%);
+  text-align: center; pointer-events: none;
+}
+#mf-clock {
+  font-size: clamp(96px, 16vw, 210px);
+  font-weight: 500; line-height: 1; letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+#mf-greeting {
+  display: inline-block; max-width: 92vw;
+  margin-top: .3em;
+  font-size: clamp(30px, 4vw, 58px);
+  font-weight: 500; letter-spacing: -0.01em;
+  pointer-events: auto; cursor: pointer; user-select: none;
+  transition: opacity 350ms ease;
+}
+#mf-greeting.mf-fading { opacity: 0; }
+
+/* Bottom row: credit, quote, toggle */
+.mf-bottom {
+  position: absolute; left: 24px; right: 24px; bottom: 18px;
+  display: grid; grid-template-columns: 1fr minmax(0, 640px) 1fr; align-items: end; gap: 16px;
+}
+#mf-credit {
+  justify-self: start; font-size: 13px; color: rgba(255,255,255,.85); text-decoration: none;
+  opacity: .8; transition: opacity 150ms ease;
+}
+#mf-credit:hover { opacity: 1; text-decoration: underline; }
+.mf-quote { text-align: center; cursor: default; }
+#mf-quote-text { font-size: 19px; font-weight: 500; line-height: 1.4; }
+#mf-quote-author {
+  font-size: 13px; margin-top: 4px; opacity: 0; transform: translateY(4px);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.mf-quote:hover #mf-quote-author { opacity: .85; transform: none; }
+
+/* View toggle: always bottom-right, both views */
+#mf-toggle {
+  position: fixed; right: 20px; bottom: 16px; z-index: 5;
+  background: rgba(255,255,255,.14);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.22);
+  text-shadow: none;
+}
+#mf-toggle:hover { background: rgba(255,255,255,.24); }
+#mf-toggle kbd {
+  font: inherit; font-size: 11px; opacity: .65;
+  padding: 0 5px; border: 1px solid rgba(255,255,255,.35); border-radius: 4px;
+}
+
+/* ---------- Dashboard view: frosted glass over the same photo ---------- */
+body.mf-dash #footer { padding-right: 150px; }
+
+body.mf-dash .service-group-name,
+body.mf-dash .bookmark-group-name { color: #fff !important; text-shadow: 0 1px 12px rgba(0,0,0,.3); }
+body.mf-dash .services-group button svg,
+body.mf-dash .bookmark-group button svg { color: rgba(255,255,255,.7); }
+
+body.mf-dash li.service > div,
+body.mf-dash li.bookmark > a {
+  background: var(--mf-card-bg) !important;
+  border: 1px solid var(--mf-card-border);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border-radius: 12px !important;
+  color: #fff !important;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+body.mf-dash li.service > div:hover,
+body.mf-dash li.bookmark > a:hover {
+  background: rgba(255,255,255,.15) !important;
+  border-color: rgba(255,255,255,.24);
+}
+body.mf-dash li.service > div { padding: 6px; }
+body.mf-dash .service-name,
+body.mf-dash .service-description { color: rgba(255,255,255,.95) !important; }
+body.mf-dash .service-description { opacity: .65; }
+
+/* metric tiles: darker, quieter */
+body.mf-dash .service-container > div {
+  background: rgba(0,0,0,.2) !important;
+  border-radius: 8px !important;
+  padding: 5px 2px;
+  color: #fff;
+}
+body.mf-dash .service-container > div > div:first-child { font-weight: 400; }
+body.mf-dash .service-container > div > div:last-child { font-weight: 600; opacity: .6; font-size: 10px; letter-spacing: .06em; }
+
+/* top bar text */
+body.mf-dash #information-widgets,
+body.mf-dash #information-widgets .text-theme-800 { color: #fff; }
+body.mf-dash #information-widgets { border-bottom-color: rgba(255,255,255,.18); }
+body.mf-dash .resource-usage { background: rgba(255,255,255,.2) !important; }
+
+/* ---------- Small screens ---------- */
+@media (max-width: 720px) {
+  /* Focus view: one compact top row. Links + status left, weather right */
+  .mf-tl { top: 14px; left: 6px; gap: 0; }
+  .mf-btn { padding: 6px 8px; font-size: 13px; }
+  #mf-links-btn span, .mf-status-word { display: none; }
+  .mf-tr { top: 8px; right: 4px; gap: 0; }
+  .mf-wx { padding: 4px 7px; }
+  .mf-wx-top { gap: 5px; }
+  .mf-wx-top svg { width: 22px; height: 22px; }
+  .mf-wx-temp { font-size: 21px; }
+  .mf-wx-city { font-size: 11px; margin-top: 0; }
+  #mf-wx-card { top: 62px; right: 8px; padding: 14px 16px 12px; }
+  #mf-links-menu { top: 40px; }
+  .mf-wc-body { flex-wrap: wrap; }
+  .mf-wc-big svg { width: 44px; height: 44px; }
+  .mf-wc-big span { font-size: 44px; }
+
+  /* Dashboard header: stats in one row, full-width search, weather side by side */
+  body.mf-dash #information-widgets { margin: 12px 12px 0; }
+  body.mf-dash #widgets-wrap { flex-direction: column; flex-wrap: nowrap; gap: 6px; }
+  body.mf-dash #widgets-wrap > .widget-container { max-width: 100%; width: 100%; }
+  body.mf-dash #widgets-wrap > .widget-container > div { flex-wrap: nowrap; justify-content: space-between; gap: 10px; }
+  body.mf-dash .information-widget-resource { margin-right: 0 !important; flex: 1 1 0; min-width: 0; }
+  body.mf-dash .information-widget-resource > div { min-width: 0 !important; margin-left: 6px !important; }
+  body.mf-dash .information-widget-resource svg { flex: none; }
+  body.mf-dash #information-widgets-right {
+    flex-wrap: wrap !important; justify-content: space-between !important;
+    gap: 4px 12px; margin: 0; width: 100%;
+  }
+  body.mf-dash .information-widget-search { flex: 1 0 100%; min-width: 0; order: -1; }
+  body.mf-dash .information-widget-search > div { margin: 6px 0 !important; }
+  body.mf-dash .information-widget-openweathermap { flex: 1 1 0; min-width: 0; }
+  body.mf-dash .information-widget-openweathermap .widget-inner { justify-content: flex-start !important; }
+  body.mf-dash .information-widget-datetime { display: none !important; }
+  .mf-bottom { left: 12px; right: 12px; grid-template-columns: 1fr; text-align: center; bottom: 64px; }
+  #mf-credit { display: none; }
+  #mf-quote-text { font-size: 15px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mf-bg, #mf-focus, #mf-shade, #mf-quote-author, #mf-greeting { transition: none !important; }
+  .mf-center > *, body.mf-dash #information-widgets, body.mf-dash .services-group, body.mf-dash .bookmark-group { animation: none !important; }
+  body.mf-dash #mf-bg { transform: none; }
+}
