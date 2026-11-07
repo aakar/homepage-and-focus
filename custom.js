@@ -265,6 +265,8 @@
   // with the page background otherwise). The CSS pads content with env(safe-area-inset-*).
   // The meta is swapped for a fresh element, which makes Safari re-read it after load.
   var TOP_OFFSET = (window.matchMedia && window.matchMedia("(max-width: 720px)").matches) ? 80 : 0;
+  // Home-screen app: iOS 27 blurs the top edge, so custom.css moves the top controls down (--mf-app-extra).
+  if ((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone) document.body.classList.add("mf-app");
   var vp = document.querySelector('meta[name="viewport"]');
   if (vp && !/viewport-fit/.test(vp.content)) {
     var vp2 = document.createElement("meta");
@@ -284,7 +286,7 @@
 
   // Version stamp (bottom center, faint) so you can tell which copies of the files a device loaded.
   // Bump VERSION here and in custom.css (--mf-css-version) on every change.
-  var VERSION = "14";
+  var VERSION = "18";
   // Re-request the stylesheet with the version in the URL to get past a stale cached copy.
   var cssBust = document.createElement("link");
   cssBust.rel = "stylesheet";

@@ -24,10 +24,12 @@ body.mf-on {
   --mf-card-bg: rgba(255, 255, 255, .09);
   --mf-card-border: rgba(255, 255, 255, .14);
   /* Version shown in the bottom stamp; keep in step with VERSION in custom.js */
-  --mf-css-version: "14";
+  --mf-css-version: "18";
   /* Phones: the page starts this far above the visible area and is parked scrolled down by it, so the photo
      also runs under the status area (custom.js parks the scroll; keep TOP_OFFSET there in step). */
   --mf-top: 0px;
+  /* Home-screen app only: extra space pushed above the top controls, clear of the iOS 27 top blur. */
+  --mf-app-extra: 28px;
 }
 @media (max-width: 720px) { body.mf-on { --mf-top: 80px; } }
 /* ============================ END CUSTOMIZE =============================== */
@@ -440,6 +442,14 @@ body.mf-dash .resource-usage { background: rgba(255,255,255,.2) !important; }
   /* (inside the scroller: padding on #page_wrapper would shrink it and leave a band under the cards) */
   body.mf-dash #inner_wrapper > .container { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
   body.mf-dash #footer { padding-right: 0; }
+}
+
+/* Home-screen app: move the top controls below the iOS 27 blur (tune --mf-app-extra in CUSTOMIZE) */
+@media (max-width: 720px) {
+  body.mf-app .mf-tl { top: calc(14px + env(safe-area-inset-top, 0px) + var(--mf-app-extra)); }
+  body.mf-app .mf-tr { top: calc(8px + env(safe-area-inset-top, 0px) + var(--mf-app-extra)); }
+  body.mf-app #mf-wx-card { top: calc(62px + var(--mf-app-extra)); }
+  body.mf-app #page_wrapper { padding-top: calc(env(safe-area-inset-top, 0px) + var(--mf-app-extra)); }
 }
 
 /* Very short viewports (landscape phones, or tall chrome eating the height) */
