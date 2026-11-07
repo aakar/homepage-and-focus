@@ -24,8 +24,12 @@ body.mf-on {
   --mf-card-bg: rgba(255, 255, 255, .09);
   --mf-card-border: rgba(255, 255, 255, .14);
   /* Version shown in the bottom stamp; keep in step with VERSION in custom.js */
-  --mf-css-version: "13";
+  --mf-css-version: "14";
+  /* Phones: the page starts this far above the visible area and is parked scrolled down by it, so the photo
+     also runs under the status area (custom.js parks the scroll; keep TOP_OFFSET there in step). */
+  --mf-top: 0px;
 }
+@media (max-width: 720px) { body.mf-on { --mf-top: 80px; } }
 /* ============================ END CUSTOMIZE =============================== */
 
 /* ---------- Before custom.js runs: no flash of the stock dashboard ----------
@@ -55,14 +59,14 @@ body.mf-dash #mf-bg { filter: blur(var(--mf-dash-blur, 8px)) saturate(1.1); tran
    page never scrolls (focus view has no overflow; the dashboard scrolls inside #inner_wrapper). */
 /* Both layers are also wider than the screen (120px right, 20px left): the dashboard zoom and blur would
    otherwise leave an undimmed sliver at the edge, and the overflow is painted under the side rail. */
-body.mf-on #mf-bg { position: absolute; inset: 0 -120px auto -20px; height: calc(100lvh + 160px); transform-origin: 50% 0; }
+body.mf-on #mf-bg { position: absolute; inset: 0 -120px auto -20px; height: calc(100lvh + 160px + var(--mf-top)); transform-origin: 50% 0; }
 html:has(body.mf-focus), body.mf-focus { touch-action: none; overscroll-behavior: none; }
 html:has(body.mf-dash) { overflow: hidden; overscroll-behavior: none; }
 /* The vignette runs the same length, with its stops in viewport units, so there is no brightness
    step where the viewport ends and the photo carries on under the bottom bar. */
 body.mf-on #mf-shade {
-  position: absolute; inset: 0 -120px auto -20px; height: calc(100lvh + 160px);
-  background: linear-gradient(to bottom, rgba(0,0,0,.28), rgba(0,0,0,0) 22svh, rgba(0,0,0,0) 72svh, rgba(0,0,0,.32) 100svh, rgba(0,0,0,.32));
+  position: absolute; inset: 0 -120px auto -20px; height: calc(100lvh + 160px + var(--mf-top));
+  background: linear-gradient(to bottom, rgba(0,0,0,.28) var(--mf-top), rgba(0,0,0,0) calc(var(--mf-top) + 22svh), rgba(0,0,0,0) calc(var(--mf-top) + 72svh), rgba(0,0,0,.32) calc(var(--mf-top) + 100svh), rgba(0,0,0,.32));
 }
 
 #mf-shade {
@@ -74,7 +78,7 @@ body.mf-on #mf-shade {
 }
 body.mf-dash #mf-shade { background-color: var(--mf-dash-dim, rgba(12, 18, 26, .48)); }
 
-body.mf-on #page_wrapper { position: relative; z-index: 2; }
+body.mf-on #page_wrapper { position: relative; z-index: 2; margin-top: var(--mf-top); }
 /* With viewport-fit=cover the page runs under side rails and notches: keep content inside the safe area */
 body.mf-on #page_wrapper { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); padding-top: env(safe-area-inset-top, 0px); }
 

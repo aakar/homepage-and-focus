@@ -264,6 +264,7 @@
   // Let the photo run under the notch / side rails (iOS letterboxes the page
   // with the page background otherwise). The CSS pads content with env(safe-area-inset-*).
   // The meta is swapped for a fresh element, which makes Safari re-read it after load.
+  var TOP_OFFSET = (window.matchMedia && window.matchMedia("(max-width: 720px)").matches) ? 80 : 0;
   var vp = document.querySelector('meta[name="viewport"]');
   if (vp && !/viewport-fit/.test(vp.content)) {
     var vp2 = document.createElement("meta");
@@ -283,7 +284,7 @@
 
   // Version stamp (bottom center, faint) so you can tell which copies of the files a device loaded.
   // Bump VERSION here and in custom.css (--mf-css-version) on every change.
-  var VERSION = "8";
+  var VERSION = "14";
   // Re-request the stylesheet with the version in the URL to get past a stale cached copy.
   var cssBust = document.createElement("link");
   cssBust.rel = "stylesheet";
@@ -308,12 +309,17 @@
   showVersion();
   cssBust.addEventListener("load", showVersion);
   window.addEventListener("resize", showVersion);
-  // The focus-view photo makes the document taller than the viewport; keep it parked at the top.
-  window.scrollTo(0, 0);
-  window.addEventListener("scroll", function () {
-    if (document.body.classList.contains("mf-focus") && window.scrollY) window.scrollTo(0, 0);
-    showVersion();
-  }, { passive: true });
+  // The photo makes the document taller than the viewport. On phones it also starts TOP_OFFSET above the
+  // visible area (custom.css --mf-top), and the page is parked scrolled down by that much, so the photo
+  // runs under the status area. Keep this in step with --mf-top in custom.css.
+  function park() {
+    if (Math.abs(window.scrollY - TOP_OFFSET) > 1 || window.scrollX) window.scrollTo(0, TOP_OFFSET);
+  }
+  park();
+  setTimeout(park, 300);
+  window.addEventListener("pageshow", park);
+  window.addEventListener("resize", park);
+  window.addEventListener("scroll", function () { park(); showVersion(); }, { passive: true });
 
   // ---------- photo under the browser chrome ----------
   // The same photo goes on <html>, so it shows wherever the page canvas is exposed (under
@@ -324,9 +330,9 @@
       var vw = window.innerWidth, vh = window.innerHeight;
       // Focus view: #mf-bg is the viewport plus the part that runs under the bottom bar (see
       // custom.css), cover-fitted and centered. The extra height is approximate.
-      var H = vh + 260;
+      var H = vh + 260 + TOP_OFFSET; // box height: viewport + ~260 below + TOP_OFFSET above (approx.)
       var k = Math.max(vw / img.naturalWidth, H / img.naturalHeight);
-      var sw = vw / k, sh = vh / k, sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - H / k) / 2;
+      var sw = vw / k, sh = vh / k, sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - H / k) / 2 + TOP_OFFSET / k;
       var c = document.createElement("canvas");
       c.width = 64; c.height = 64;
       var g = c.getContext("2d");
