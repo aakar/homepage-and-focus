@@ -23,6 +23,8 @@ body.mf-on {
   /* Frosted card fill and border on the dashboard. */
   --mf-card-bg: rgba(255, 255, 255, .09);
   --mf-card-border: rgba(255, 255, 255, .14);
+  /* Version shown in the bottom stamp; keep in step with VERSION in custom.js */
+  --mf-css-version: "13";
 }
 /* ============================ END CUSTOMIZE =============================== */
 
@@ -36,15 +38,32 @@ body:not(.mf-on) #background { opacity: 0; animation: mf-failsafe 300ms ease 2.5
 
 /* ---------- Shared: photo layer replaces Homepage's dimmed background ---------- */
 body.mf-on #background { display: none; }
+/* let the photo on <html> show through (Homepage paints its own body color) */
+body.mf-on { background: transparent !important; }
 
 #mf-bg {
-  position: fixed; inset: 0; z-index: 0;
+  /* Oversized on every side so the photo also shows under translucent browser bars */
+  position: fixed; inset: -160px; z-index: 0;
   background: var(--mf-fallback-bg, #3d5a66) center / cover no-repeat;
   transition: opacity 600ms ease, filter 550ms ease, transform 700ms cubic-bezier(.2,.8,.2,1);
 }
 /* Dashboard: the photo softens and eases back, so the cards read as a layer above it */
 body.mf-dash #mf-bg { filter: blur(var(--mf-dash-blur, 8px)) saturate(1.1); transform: scale(1.06); }
 #mf-bg.mf-loading { opacity: 0; }
+/* Safari clips fixed layers to the area above its floating bottom bar, but paints the document itself
+   under that bar. So in both views the photo is part of the document and runs past the viewport. The
+   page never scrolls (focus view has no overflow; the dashboard scrolls inside #inner_wrapper). */
+/* Both layers are also wider than the screen (120px right, 20px left): the dashboard zoom and blur would
+   otherwise leave an undimmed sliver at the edge, and the overflow is painted under the side rail. */
+body.mf-on #mf-bg { position: absolute; inset: 0 -120px auto -20px; height: calc(100lvh + 160px); transform-origin: 50% 0; }
+html:has(body.mf-focus), body.mf-focus { touch-action: none; overscroll-behavior: none; }
+html:has(body.mf-dash) { overflow: hidden; overscroll-behavior: none; }
+/* The vignette runs the same length, with its stops in viewport units, so there is no brightness
+   step where the viewport ends and the photo carries on under the bottom bar. */
+body.mf-on #mf-shade {
+  position: absolute; inset: 0 -120px auto -20px; height: calc(100lvh + 160px);
+  background: linear-gradient(to bottom, rgba(0,0,0,.28), rgba(0,0,0,0) 22svh, rgba(0,0,0,0) 72svh, rgba(0,0,0,.32) 100svh, rgba(0,0,0,.32));
+}
 
 #mf-shade {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -56,6 +75,8 @@ body.mf-dash #mf-bg { filter: blur(var(--mf-dash-blur, 8px)) saturate(1.1); tran
 body.mf-dash #mf-shade { background-color: var(--mf-dash-dim, rgba(12, 18, 26, .48)); }
 
 body.mf-on #page_wrapper { position: relative; z-index: 2; }
+/* With viewport-fit=cover the page runs under side rails and notches: keep content inside the safe area */
+body.mf-on #page_wrapper { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); padding-top: env(safe-area-inset-top, 0px); }
 
 /* Font (set in CUSTOMIZE above) applies to both views */
 body.mf-on {
@@ -90,6 +111,9 @@ body.mf-on .information-widget-openweathermap .widget-inner-text span { color: #
 /* elements custom.js hides when there's nothing to show (no weather widgets,
    no bookmarks, no Docker statuses) */
 #mf-focus [hidden] { display: none !important; }
+/* popovers (weather card, links menu) and the top row sit above the clock layer, which comes later in the DOM */
+.mf-tl, .mf-tr { z-index: 4; }
+#mf-wx-card { z-index: 5; }
 /* Focus -> dashboard: clock layer fades while drifting slightly toward you */
 body.mf-dash #mf-focus {
   opacity: 0; visibility: hidden; transform: scale(1.04);
@@ -130,6 +154,11 @@ body.mf-focus #page_wrapper,
 body.mf-focus #inner_wrapper { pointer-events: none; }
 /* ...except quick launch (first child of the container) */
 body.mf-focus #inner_wrapper > .container > div:first-child { pointer-events: auto; }
+/* ...and the mobile quick-launch button and its dialog while open (the closed dialog carries Tailwind's
+   pointer-events-none, so it stays out of the way) */
+body.mf-focus #inner_wrapper button { pointer-events: auto; }
+body.mf-focus #inner_wrapper [role="dialog"]:not(.pointer-events-none),
+body.mf-focus #inner_wrapper dialog { pointer-events: auto; }
 
 /* Weather, Momentum-style: big temp with icon, city underneath */
 .mf-tr {
@@ -276,6 +305,13 @@ body.mf-focus #inner_wrapper > .container > div:first-child { pointer-events: au
   padding: 0 5px; border: 1px solid rgba(255,255,255,.35); border-radius: 4px;
 }
 
+/* Version stamp */
+#mf-version {
+  position: fixed; left: 50%; bottom: calc(2px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 6; pointer-events: none; max-width: 96vw; overflow: hidden; text-overflow: ellipsis;
+  font-size: 10px; letter-spacing: .04em; color: rgba(255,255,255,.4); text-shadow: none; white-space: nowrap;
+}
+
 /* ---------- Dashboard view: frosted glass over the same photo ---------- */
 body.mf-dash #footer { padding-right: 150px; }
 
@@ -397,8 +433,8 @@ body.mf-dash .resource-usage { background: rgba(255,255,255,.2) !important; }
   #mf-toggle kbd { display: none; }
 
   /* Dashboard: keep content clear of the toggle and safe areas */
-  body.mf-dash #page_wrapper { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
-  body.mf-dash #information-widgets { margin-left: calc(12px + env(safe-area-inset-left, 0px)); margin-right: calc(12px + env(safe-area-inset-right, 0px)); }
+  /* (inside the scroller: padding on #page_wrapper would shrink it and leave a band under the cards) */
+  body.mf-dash #inner_wrapper > .container { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
   body.mf-dash #footer { padding-right: 0; }
 }
 

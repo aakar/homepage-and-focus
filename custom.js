@@ -261,6 +261,97 @@
   document.body.appendChild(toggle);
   document.body.classList.add("mf-on");
 
+  // Let the photo run under the notch / side rails (iOS letterboxes the page
+  // with the page background otherwise). The CSS pads content with env(safe-area-inset-*).
+  // The meta is swapped for a fresh element, which makes Safari re-read it after load.
+  var vp = document.querySelector('meta[name="viewport"]');
+  if (vp && !/viewport-fit/.test(vp.content)) {
+    var vp2 = document.createElement("meta");
+    vp2.name = "viewport";
+    vp2.content = vp.content + ", viewport-fit=cover"; // (v7 tried width=460: unstable, buttons dead; reverted)
+    vp.parentNode.replaceChild(vp2, vp);
+  }
+  // Home-screen web app: ask iOS to draw the page under the status bar area (pairs with viewport-fit=cover).
+  // May need the icon re-added to the home screen to take effect.
+  [["apple-mobile-web-app-capable", "yes"], ["apple-mobile-web-app-status-bar-style", "black-translucent"]].forEach(function (m) {
+    var t = document.querySelector('meta[name="' + m[0] + '"]');
+    if (!t) { t = document.createElement("meta"); t.name = m[0]; document.head.appendChild(t); }
+    t.setAttribute("content", m[1]);
+  });
+  var root = document.documentElement;
+  root.style.backgroundColor = "#3d5a66"; // matches --mf-fallback-bg
+
+  // Version stamp (bottom center, faint) so you can tell which copies of the files a device loaded.
+  // Bump VERSION here and in custom.css (--mf-css-version) on every change.
+  var VERSION = "8";
+  // Re-request the stylesheet with the version in the URL to get past a stale cached copy.
+  var cssBust = document.createElement("link");
+  cssBust.rel = "stylesheet";
+  cssBust.href = "/api/config/custom.css?v=" + VERSION;
+  document.head.appendChild(cssBust);
+  var stamp = el("div", { id: "mf-version", "aria-hidden": "true" });
+  document.body.appendChild(stamp);
+  // Probe for the safe-area insets, so the stamp can show what Safari actually reports.
+  var probe = el("div", { "aria-hidden": "true" });
+  probe.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;" +
+    "padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)";
+  document.body.appendChild(probe);
+  function showVersion() {
+    var cssV = (getComputedStyle(document.body).getPropertyValue("--mf-css-version") || "").replace(/["'\s]/g, "");
+    var ps = getComputedStyle(probe);
+    var sa = [ps.paddingTop, ps.paddingRight, ps.paddingBottom, ps.paddingLeft].map(function (v) { return parseInt(v, 10) || 0; }).join("/");
+    var standalone = (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone;
+    stamp.textContent = "js " + VERSION + " \u00b7 css " + (cssV || "?") + " \u00b7 " +
+      window.innerWidth + "x" + window.innerHeight + " of " + window.screen.width + "x" + window.screen.height +
+      " \u00b7 inset " + sa + " \u00b7 y" + Math.round(window.scrollY) + " \u00b7 " + (standalone ? "app" : "safari");
+  }
+  showVersion();
+  cssBust.addEventListener("load", showVersion);
+  window.addEventListener("resize", showVersion);
+  // The focus-view photo makes the document taller than the viewport; keep it parked at the top.
+  window.scrollTo(0, 0);
+  window.addEventListener("scroll", function () {
+    if (document.body.classList.contains("mf-focus") && window.scrollY) window.scrollTo(0, 0);
+    showVersion();
+  }, { passive: true });
+
+  // ---------- photo under the browser chrome ----------
+  // The same photo goes on <html>, so it shows wherever the page canvas is exposed (under
+  // translucent bars, overscroll). Safari's toolbar tint (theme-color) follows the photo's
+  // bottom edge, and the html color follows the right edge, so opaque bars blend in too.
+  function edgeColors(img) {
+    try {
+      var vw = window.innerWidth, vh = window.innerHeight;
+      // Focus view: #mf-bg is the viewport plus the part that runs under the bottom bar (see
+      // custom.css), cover-fitted and centered. The extra height is approximate.
+      var H = vh + 260;
+      var k = Math.max(vw / img.naturalWidth, H / img.naturalHeight);
+      var sw = vw / k, sh = vh / k, sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - H / k) / 2;
+      var c = document.createElement("canvas");
+      c.width = 64; c.height = 64;
+      var g = c.getContext("2d");
+      g.drawImage(img, sx, sy, sw, sh, 0, 0, 64, 64);
+      var avg = function (x, y, w, h) {
+        var d = g.getImageData(x, y, w, h).data, r = 0, gr = 0, b = 0, n = d.length / 4;
+        for (var i = 0; i < d.length; i += 4) { r += d[i]; gr += d[i + 1]; b += d[i + 2]; }
+        return "rgb(" + Math.round(r / n) + "," + Math.round(gr / n) + "," + Math.round(b / n) + ")";
+      };
+      return { bottom: avg(0, 60, 64, 4), right: avg(60, 0, 4, 64) };
+    } catch (e) { return null; }
+  }
+  function paintRoot(url, img) {
+    root.style.backgroundImage = 'url("' + url + '")';
+    root.style.backgroundSize = "cover";
+    root.style.backgroundPosition = "center";
+    root.style.backgroundRepeat = "no-repeat";
+    var edges = edgeColors(img);
+    if (!edges) return;
+    root.style.backgroundColor = edges.right;
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (!tc) { tc = document.createElement("meta"); tc.name = "theme-color"; document.head.appendChild(tc); }
+    tc.setAttribute("content", edges.bottom);
+  }
+
   // ---------- daily photo + quote ----------
   var currentDay = null;
   function applyDay() {
@@ -271,13 +362,22 @@
     var p = PHOTOS[((day % PHOTOS.length) + PHOTOS.length) % PHOTOS.length];
     var w = Math.min(3200, Math.round(window.screen.width * (window.devicePixelRatio || 1)));
     var url = "https://images.unsplash.com/photo-" + p[0] + "?auto=format&fit=crop&q=80&w=" + w;
-    var img = new Image();
-    img.onload = function () {
-      bg.style.backgroundImage = 'url("' + url + '")';
-      bg.classList.remove("mf-loading");
-    };
-    img.onerror = function () { bg.classList.remove("mf-loading"); }; // falls back to solid color
-    img.src = url;
+    // CORS request first (needed to sample edge colors); plain request if that fails
+    function loadPhoto(cors) {
+      var img = new Image();
+      if (cors) img.crossOrigin = "anonymous";
+      img.onload = function () {
+        bg.style.backgroundImage = 'url("' + url + '")';
+        bg.classList.remove("mf-loading");
+        if (cors) paintRoot(url, img);
+      };
+      img.onerror = function () {
+        if (cors) loadPhoto(false);
+        else bg.classList.remove("mf-loading"); // falls back to solid color
+      };
+      img.src = url;
+    }
+    loadPhoto(true);
 
     credit.textContent = p[1] ? "Photo by " + p[1] + " · Unsplash" : "Photo · Unsplash";
     credit.href = "https://unsplash.com/?utm_source=homepage_focus_view&utm_medium=referral";
